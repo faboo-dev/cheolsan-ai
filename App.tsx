@@ -1,82 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
-import KnowledgeManager from './components/KnowledgeManager';
-import { ViewState, KnowledgeItem } from './types';
+import { ViewState } from './types';
 import { INITIAL_KNOWLEDGE_BASE } from './constants';
-
-const LOCAL_STORAGE_KEY = 'cheolsan_knowledge_v1';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.CHAT);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   
-  // Initialize from LocalStorage or fall back to Initial Data
-  const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeItem[]>(() => {
-    try {
-      const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (savedData) {
-        return JSON.parse(savedData);
-      }
-    } catch (e) {
-      console.error("Failed to load from local storage", e);
-    }
-    return INITIAL_KNOWLEDGE_BASE;
-  });
-  
-  const [isAdmin, setIsAdmin] = useState(false); // Default to User mode
-
-  // Save to LocalStorage whenever knowledgeBase changes
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(knowledgeBase));
-    } catch (e) {
-      console.error("Failed to save to local storage", e);
-    }
-  }, [knowledgeBase]);
+  // The Knowledge Base is now static (loaded from files at build time)
+  // We don't need state for it anymore since users can't change it in the UI.
+  const knowledgeBase = INITIAL_KNOWLEDGE_BASE;
 
   const renderContent = () => {
     switch (currentView) {
       case ViewState.CHAT:
         return <ChatInterface knowledgeBase={knowledgeBase} />;
-      case ViewState.KNOWLEDGE:
-        // Protect route
-        if (!isAdmin) return <ChatInterface knowledgeBase={knowledgeBase} />;
-        return <KnowledgeManager knowledgeBase={knowledgeBase} setKnowledgeBase={setKnowledgeBase} />;
       case ViewState.SETTINGS:
         return (
           <div className="p-10 max-w-2xl mx-auto h-full overflow-y-auto">
              <h2 className="text-2xl font-bold mb-6 text-slate-800">설정</h2>
              
              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
-               <h3 className="text-lg font-semibold mb-4">애플리케이션 정보</h3>
+               <h3 className="text-lg font-semibold mb-4">데이터베이스 정보</h3>
                <div className="space-y-2 text-sm text-slate-600">
-                 <p><strong>Version:</strong> 1.1.0 (Persistence Update)</p>
-                 <p><strong>Model:</strong> Google Gemini 2.5 Flash</p>
-                 <p><strong>Status:</strong> Active</p>
-                 <p className="text-xs text-green-600 mt-2">✅ 브라우저 저장소 연동됨 (새로고침해도 데이터 유지)</p>
+                 <p><strong>총 문서 수:</strong> {knowledgeBase.length}개</p>
+                 <p><strong>데이터 소스:</strong> GitHub Repository (./data folder)</p>
+                 <p><strong>최신 업데이트:</strong> {new Date().toLocaleDateString()}</p>
+                 <div className="mt-4 p-3 bg-green-50 text-green-800 rounded-lg text-xs">
+                   ✅ <strong>자동 연동 중:</strong> 'data' 폴더에 있는 JSON 파일들이 자동으로 로드되었습니다.<br/>
+                   파일명의 날짜(예: 2512)가 최신일수록 우선적으로 답변에 사용됩니다.
+                 </div>
                </div>
              </div>
 
              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-               <h3 className="text-lg font-semibold mb-4">관리자 설정</h3>
-               <div className="flex items-center justify-between">
-                 <div>
-                   <p className="font-medium text-slate-800">관리자 모드 활성화</p>
-                   <p className="text-xs text-slate-500">콘텐츠(지식) 관리 메뉴를 표시합니다.</p>
-                 </div>
-                 <button 
-                  onClick={() => setIsAdmin(!isAdmin)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAdmin ? 'bg-blue-600' : 'bg-slate-200'}`}
-                 >
-                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAdmin ? 'translate-x-6' : 'translate-x-1'}`} />
-                 </button>
+               <h3 className="text-lg font-semibold mb-4">애플리케이션 정보</h3>
+               <div className="space-y-2 text-sm text-slate-600">
+                 <p><strong>Version:</strong> 1.2.0 (File-based RAG)</p>
+                 <p><strong>Model:</strong> Google Gemini 2.5 Flash</p>
                </div>
-               {isAdmin && (
-                 <div className="mt-4 p-3 bg-blue-50 text-blue-800 text-sm rounded-lg">
-                   관리자 모드가 켜졌습니다. 사이드바에서 <strong>콘텐츠 관리</strong> 메뉴를 확인하세요.
-                 </div>
-               )}
              </div>
           </div>
         );
@@ -92,7 +55,6 @@ const App: React.FC = () => {
         onViewChange={setCurrentView}
         isMobileOpen={isMobileOpen}
         setIsMobileOpen={setIsMobileOpen}
-        isAdmin={isAdmin}
       />
       
       <main className="flex-1 flex flex-col h-full relative w-full">
