@@ -1,48 +1,51 @@
 import { KnowledgeItem } from './types';
 
-// Simulating the "Cheolsan Land Records" (Context)
-export const INITIAL_KNOWLEDGE_BASE: KnowledgeItem[] = [
-  {
-    id: 'yt-1',
-    type: 'youtube',
-    title: '[세부 호핑] 썬마호핑 완벽 정리',
-    url: 'https://youtube.com/watch?v=example1',
-    content: `
-      [00:00] 인트로: 오늘은 세부 썬마호핑에 대해 알아봅니다.
-      [00:30] 썬마호핑 특징: 대형 방카를 사용하며 파티 분위기가 강합니다. 젊은 층에게 인기가 많습니다. E호핑이라고도 불립니다.
-      [01:15] 식사: 선상 뷔페가 제공되며, 라면과 맥주가 무제한입니다. 특히 꼬치구이가 맛있습니다.
-      [02:00] 코스: 날루수안과 힐루뚱안을 주로 갑니다. 기상 상황에 따라 올랑고로 변경될 수 있습니다.
-      [03:45] 주의사항: 뱃멀미가 심한 분은 미리 약을 드세요. 음악 소리가 매우 큽니다.
-    `
-  },
-  {
-    id: 'yt-2',
-    type: 'youtube',
-    title: '[세부 여행] 호핑투어 준비물 TOP 5',
-    url: 'https://youtube.com/watch?v=example2',
-    content: `
-      [00:10] 1위: 래쉬가드. 햇빛이 강하니 긴팔을 추천합니다. 화상 입기 쉽습니다.
-      [00:45] 2위: 아쿠아슈즈. 산호에 긁힐 수 있어 필수입니다. 슬리퍼는 물에 떠내려갑니다.
-      [01:20] 3위: 방수팩. 사진 촬영을 위해 필수입니다. 다이소 제품보다는 튼튼한 걸 추천해요.
-      [02:00] 4위: 비치타올. 물에서 나오면 춥습니다. 철산랜드 굿즈 타올 추천!
-      [02:30] 5위: 약간의 팁. 보트맨들에게 50-100페소 정도 팁을 주면 케어를 더 잘해줍니다.
-    `
-  },
-  {
-    id: 'blog-1',
-    type: 'blog',
-    title: '철산랜드 블로그 - 세부 시티 맛집 리스트',
-    url: 'https://blog.naver.com/cheolsan/12345',
-    content: `
-      세부시티 맛집 추천 리스트입니다.
-      1. 츄비츄비: 블랙페퍼 쉬림프가 진리입니다. 가격은 약 500페소 정도 합니다. 파크몰점이 쾌적합니다.
-      2. 하우스 오브 레촌: 껍질이 바삭한 돼지 통구이 요리(레촌) 전문점입니다. 아카시아 스트리트에 있습니다.
-      3. 탑스그릴: 야경을 보며 먹는 새우 요리. 예약 필수입니다. 한국인 입맛에 딱 맞습니다.
-      4. 졸리비: 필리핀의 맥도날드. 치킨과 스파게티 세트가 가성비 최고입니다.
-    `
-  }
-];
+// ---------------------------------------------------------------------------
+// 📂 AUTOMATIC DATA LOADER (Magic Logic)
+// ---------------------------------------------------------------------------
+// This loads ALL .json files from the './data' folder automatically at build time.
+// You do NOT need to manually add files here. Just drop them in the 'data' folder.
+const dataFiles = (import.meta as any).glob('./data/*.json', { eager: true });
 
+// Process and Merge all data files
+export const INITIAL_KNOWLEDGE_BASE: KnowledgeItem[] = Object.entries(dataFiles).flatMap(([path, module]: [string, any]) => {
+  const content = module.default || module;
+  // Support both single object and array of objects in JSON
+  const items = Array.isArray(content) ? content : [content];
+  
+  // 📅 Date Parsing Logic
+  // Filename format expected: YYYYMM_title.json or YYMM_title.json
+  // Example: "202501_cebu_hopping.json" -> 202501
+  // Example: "2512_cebu_review.json" -> 202512
+  const filename = path.split('/').pop() || '';
+  const dateMatch = filename.match(/^(\d{4,6})/);
+  
+  let dateCode = 0;
+  if (dateMatch) {
+    const rawDate = dateMatch[1];
+    if (rawDate.length === 4) {
+      // If 2512 (YYMM), convert to 202512 (YYYYMM) for correct sorting
+      dateCode = parseInt('20' + rawDate);
+    } else {
+      dateCode = parseInt(rawDate);
+    }
+  }
+
+  return items.map((item: any, index: number) => ({
+    ...item,
+    // Ensure essential fields exist even if JSON is messy
+    id: item.id || `${filename}-${index}`,
+    title: item.title || filename.replace('.json', ''),
+    content: item.content || item.description || JSON.stringify(item),
+    type: item.type || (filename.includes('youtube') ? 'youtube' : 'blog'),
+    url: item.url || '',
+    dateCode: item.dateCode || dateCode // Use filename date if item doesn't have one
+  }));
+}).sort((a, b) => (b.dateCode || 0) - (a.dateCode || 0)); // Default sort: Newest First
+
+// ---------------------------------------------------------------------------
+// 🤖 SYSTEM PROMPT
+// ---------------------------------------------------------------------------
 export const SYSTEM_INSTRUCTION_TEMPLATE = `
 당신은 '철산랜드' 유튜브 채널 및 블로그 콘텐츠를 기반으로 한 세부 여행 전문 AI 어시스턴트입니다.
 
@@ -56,7 +59,7 @@ export const SYSTEM_INSTRUCTION_TEMPLATE = `
 ### 1. 철산랜드 기록
 - 아래 제공된 [Context] 데이터에 있는 내용만 사용하여 답변합니다.
 - 각 문장 끝에 반드시 [출처](링크)를 표기하세요. YouTube 링크인 경우 타임스탬프가 있다면 포함하세요.
-- [Context]가 비어있거나 관련 내용이 없으면 "철산랜드 기록에 관련 정보가 없습니다."라고 출력하세요.
+- 만약 [Context]가 비어있다면, 이 섹션에 "철산랜드 기록에 관련 정보가 없습니다."라고만 출력하세요.
 
 ### 2. AI 일반 지식
 - [Context]에 없더라도 당신이 알고 있는 일반적인 여행 상식, 지리, 문화 정보를 기반으로 답변합니다.
@@ -67,7 +70,7 @@ export const SYSTEM_INSTRUCTION_TEMPLATE = `
 - 검색 결과의 출처 링크를 포함하십시오.
 
 ---
-[Context Data]
+[Context Data (Prioritize this info)]
 {{CONTEXT}}
 ---
 `;
