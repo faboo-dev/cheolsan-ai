@@ -5,14 +5,9 @@ import { KnowledgeItem } from '../types';
 let genAI: GoogleGenAI | null = null;
 
 export const initializeGemini = () => {
-  // Render와 같은 배포 환경에서는 import.meta.env.VITE_API_KEY를 사용합니다.
-  // 로컬 환경이나 다른 설정에서는 process.env.API_KEY를 사용할 수 있습니다.
   const apiKey = (import.meta as any).env?.VITE_API_KEY || process.env.API_KEY;
-  
   if (apiKey) {
     genAI = new GoogleGenAI({ apiKey });
-  } else {
-    console.error("API Key is missing! Please check your environment variables.");
   }
 };
 
@@ -26,8 +21,10 @@ const retrieveRelevantDocuments = (query: string, knowledgeBase: KnowledgeItem[]
     const contentLower = (item.title + " " + item.content).toLowerCase();
     
     terms.forEach(term => {
+      // Basic Keyword Matching
       if (contentLower.includes(term)) score += 2;
       
+      // Basic Synonyms
       if (term === '얼마' || term === '비용' || term === '가격') {
         if (contentLower.includes('가격') || contentLower.includes('비용') || contentLower.includes('페소')) score += 1;
       }
@@ -39,12 +36,22 @@ const retrieveRelevantDocuments = (query: string, knowledgeBase: KnowledgeItem[]
     return { item, score };
   });
 
+  // 🔥 Smart Sorting Logic
+  // 1. Filter out irrelevant items (score > 0)
+  // 2. Sort by SCORE (Relevance) first
+  // 3. If scores are equal, sort by DATE (Recency) -> This ensures v2512 beats v2401
   const relevantItems = scoredItems
     .filter(entry => entry.score > 0)
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score; // Higher relevance wins
+      }
+      return (b.item.dateCode || 0) - (a.item.dateCode || 0); // Newer content wins
+    })
     .map(entry => entry.item);
 
-  return relevantItems.slice(0, 3);
+  // Return top 4 items to give enough context
+  return relevantItems.slice(0, 4);
 };
 
 export const generateResponse = async (
@@ -54,7 +61,7 @@ export const generateResponse = async (
 ) => {
   if (!genAI) {
     initializeGemini();
-    if (!genAI) throw new Error("API Key not found. Please set VITE_API_KEY in settings.");
+    if (!genAI) throw new Error("API Key not found. Please set VITE_API_KEY.");
   }
 
   const relevantDocs = retrieveRelevantDocuments(prompt, knowledgeBase);
@@ -64,6 +71,7 @@ export const generateResponse = async (
     contextString = relevantDocs.map(item => `
 ---
 Title: ${item.title}
+DateCode: ${item.dateCode} (Higher is newer)
 Type: ${item.type}
 URL: ${item.url}
 Content: ${item.content}
