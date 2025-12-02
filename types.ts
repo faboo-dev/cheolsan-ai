@@ -11,26 +11,27 @@ export interface Message {
   timestamp: Date;
   isThinking?: boolean;
   sources?: Source[];
-  retrievedContext?: KnowledgeItem[]; // Added: To show what documents were used
+  retrievedContext?: KnowledgeItem[];
 }
 
 export interface Source {
   title: string;
   url: string;
-  timestamp?: string; // e.g., "123" for seconds
+  timestamp?: string;
   type: 'youtube' | 'blog' | 'web';
 }
 
 export interface KnowledgeItem {
   id: string;
-  type: 'youtube' | 'blog';
+  type: string; // Flexible type (youtube, blog, etc)
   title: string;
-  content: string; // The text content extracted (simulated)
-  url: string;
+  content: string;
+  url?: string;
+  dateCode?: number; // YYYYMM format for sorting (e.g., 202512)
+  [key: string]: any; // Allow other fields from JSON
 }
 
 export enum ViewState {
   CHAT = 'CHAT',
-  KNOWLEDGE = 'KNOWLEDGE',
   SETTINGS = 'SETTINGS'
 }
