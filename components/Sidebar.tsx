@@ -6,14 +6,11 @@ interface SidebarProps {
   onViewChange: (view: ViewState) => void;
   isMobileOpen: boolean;
   setIsMobileOpen: (isOpen: boolean) => void;
-  isAdmin: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, isMobileOpen, setIsMobileOpen, isAdmin }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, isMobileOpen, setIsMobileOpen }) => {
   const navItems = [
     { id: ViewState.CHAT, label: '여행 챗봇', icon: '💬' },
-    // Only show Knowledge Base in Admin Mode
-    ...(isAdmin ? [{ id: ViewState.KNOWLEDGE, label: '콘텐츠 관리 (Admin)', icon: '📚' }] : []),
     { id: ViewState.SETTINGS, label: '설정', icon: '⚙️' },
   ];
 
@@ -67,10 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, isMobileOp
             <p className="font-bold text-slate-300 mb-1">System Status</p>
             <div className="flex items-center space-x-2">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              <span>Online</span>
-            </div>
-            <div className="mt-2 text-[10px] text-slate-500">
-               Mode: {isAdmin ? 'Administrator' : 'User'}
+              <span>Online (File Sync)</span>
             </div>
           </div>
         </div>
