@@ -1,47 +1,68 @@
 import { KnowledgeItem } from './types';
 
 // ---------------------------------------------------------------------------
-// 📂 AUTOMATIC DATA LOADER (Magic Logic)
+// 📂 AUTOMATIC DATA LOADER (Error-Proof Version)
 // ---------------------------------------------------------------------------
-// This loads ALL .json files from the './data' folder automatically at build time.
-// You do NOT need to manually add files here. Just drop them in the 'data' folder.
-const dataFiles = (import.meta as any).glob('./data/*.json', { eager: true });
+// Stores list of files that failed to load due to typos
+export let SKIPPED_FILES: string[] = [];
+
+let dataFiles: Record<string, string> = {};
+
+try {
+  // ✨ MAGIC FIX: use query: '?raw'
+  // This tells the computer: "Don't check grammar, just give me the text."
+  // So even if there is a missing comma, the build will NOT fail.
+  if ((import.meta as any).glob) {
+    dataFiles = (import.meta as any).glob('./data/*.json', { eager: true, query: '?raw', import: 'default' });
+  } else {
+    console.error("Critical: import.meta.glob missing");
+  }
+} catch (e) {
+  console.error("Failed to load data files:", e);
+}
 
 // Process and Merge all data files
-export const INITIAL_KNOWLEDGE_BASE: KnowledgeItem[] = Object.entries(dataFiles).flatMap(([path, module]: [string, any]) => {
-  const content = module.default || module;
-  // Support both single object and array of objects in JSON
-  const items = Array.isArray(content) ? content : [content];
-  
-  // 📅 Date Parsing Logic
-  // Filename format expected: YYYYMM_title.json or YYMM_title.json
-  // Example: "202501_cebu_hopping.json" -> 202501
-  // Example: "2512_cebu_review.json" -> 202512
+export const INITIAL_KNOWLEDGE_BASE: KnowledgeItem[] = Object.entries(dataFiles).flatMap(([path, rawContent]) => {
   const filename = path.split('/').pop() || '';
-  const dateMatch = filename.match(/^(\d{4,6})/);
-  
-  let dateCode = 0;
-  if (dateMatch) {
-    const rawDate = dateMatch[1];
-    if (rawDate.length === 4) {
-      // If 2512 (YYMM), convert to 202512 (YYYYMM) for correct sorting
-      dateCode = parseInt('20' + rawDate);
-    } else {
-      dateCode = parseInt(rawDate);
-    }
-  }
 
-  return items.map((item: any, index: number) => ({
-    ...item,
-    // Ensure essential fields exist even if JSON is messy
-    id: item.id || `${filename}-${index}`,
-    title: item.title || filename.replace('.json', ''),
-    content: item.content || item.description || JSON.stringify(item),
-    type: item.type || (filename.includes('youtube') ? 'youtube' : 'blog'),
-    url: item.url || '',
-    dateCode: item.dateCode || dateCode // Use filename date if item doesn't have one
-  }));
-}).sort((a, b) => (b.dateCode || 0) - (a.dateCode || 0)); // Default sort: Newest First
+  try {
+    // 🛡️ Manual Parsing: We check grammar here inside the app.
+    // If a file has an error, it goes to 'catch' block and doesn't crash the site.
+    const content = JSON.parse(rawContent as string);
+    
+    // Support both single object and array
+    const items = Array.isArray(content) ? content : [content];
+    
+    // 📅 Date Parsing Logic
+    const dateMatch = filename.match(/^(\d{4,6})/);
+    let dateCode = 0;
+    
+    if (dateMatch) {
+      const rawDate = dateMatch[1];
+      if (rawDate.length === 4) {
+        dateCode = parseInt('20' + rawDate); // 2512 -> 202512
+      } else {
+        dateCode = parseInt(rawDate);
+      }
+    }
+
+    return items.map((item: any, index: number) => ({
+      ...item,
+      id: item.id || `${filename}-${index}`,
+      title: item.title || filename.replace('.json', ''),
+      content: item.content || item.description || JSON.stringify(item),
+      type: item.type || (filename.includes('youtube') ? 'youtube' : 'blog'),
+      url: item.url || '',
+      dateCode: item.dateCode || dateCode
+    }));
+
+  } catch (err) {
+    // 🚨 If a file has a typo, we simply skip it and record the name.
+    console.error(`Skipping broken file: ${filename}`);
+    SKIPPED_FILES.push(filename);
+    return [];
+  }
+}).sort((a, b) => (b.dateCode || 0) - (a.dateCode || 0));
 
 // ---------------------------------------------------------------------------
 // 🤖 SYSTEM PROMPT
