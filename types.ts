@@ -23,12 +23,12 @@ export interface Source {
 
 export interface KnowledgeItem {
   id: string;
-  type: string; // Flexible type (youtube, blog, etc)
+  type: string; 
   title: string;
   content: string;
   url?: string;
-  dateCode?: number; // YYYYMM format for sorting (e.g., 202512)
-  [key: string]: any; // Allow other fields from JSON
+  dateCode?: number; 
+  [key: string]: any; 
 }
 
 export enum ViewState {
